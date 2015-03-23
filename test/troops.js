@@ -21,7 +21,7 @@ test("can make new troops",function(t){
         t.ok(!err,'should not have error ('+err+')');
         t.equals(data.id ,2,'should have id for new troop 2');
         t.equals(data.name,"steve","should have saved name");
-        t.end();
+        next();
       });
     }
   ],next = function(){

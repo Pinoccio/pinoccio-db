@@ -18,10 +18,10 @@ module.exports = function(dir){
   var o = {
     db:db,
     // a database always has a uuid that identifies it 
-    getId:function(){
+    getId:function(cb){
       
     },
-    getTroops:function(){
+    getTroops:function(cb){
       var z = this;
       var out = {};
       z.db.createReadStream({start:"troops"+sep,end:"troops"+sep+sep}).on('data',function(data){
@@ -36,20 +36,24 @@ module.exports = function(dir){
         cb(false,out);
       });
     },
-    getTroop:function(id){
+    getTroop:function(id,cb){
       var z = this;
       if(!id) return process.nextTick(function(){
-        var e = new Error('id or token required to get troop');
+        var e = new Error('id or key required to get troop');
         e.code = z.errors.noid;
         cb(e);
       });
 
       if(id.length == 32) {
-        z.getTroopIdFromToken(id,function(err,id){
+        z.getTroopIdFromKey(id,function(err,id){
           if(err) return cb(err);
           db.get("troops"+sep+id,cb);
         });
+        return;
       }
+
+      db.get("troops"+sep+id,cb);
+
     },
     writeTroop:function(obj,cb){
       // create and or update a troop.
@@ -66,8 +70,8 @@ module.exports = function(dir){
           if(err) return cb(err);
           obj.neverConnected = true;
           obj.id = obj.troop = id;
-          z.assignTroopToken({id:obj.id},function(err,token){
-            obj.token = token;
+          z.assignTroopKey({id:obj.id},function(err,key){
+            obj.key = key;
             if(err) return cb(err);
             z.db.put(prefix+obj.id,obj,function(err){
               if(err) return cb(err);
@@ -84,10 +88,10 @@ module.exports = function(dir){
 
             obj.neverConnected = true;
             obj.troop = obj.id = id;
-            // if token is present is gets force assigned to this mystery troop.
-            z.assignTroopToken({id:obj.id,token:obj.token},function(err,token){
+            // if key is present is gets force assigned to this mystery troop.
+            z.assignTroopKey({id:obj.id,key:obj.key},function(err,key){
               if(err) return cb(err);
-              obj.token = token;
+              obj.key = key;
               z.db.put(prefix+obj.id,obj,function(err){
                 if(err) return cb(err);
                 cb(false,obj);
@@ -107,6 +111,10 @@ module.exports = function(dir){
           });
         });
       }
+    },
+    deleteTroop:function(){
+      // this writes a troop id \0 key to the db. this causes getTroops to skip it unless a deletes option is passed.
+
     },
     sync:function(options){
       // TODO 
@@ -131,24 +139,24 @@ module.exports = function(dir){
 
       return s;
     },
-    assignTroopToken:function(obj,cb){
+    assignTroopKey:function(obj,cb){
       obj = obj||{};
       var z = this;
       if(!obj.id) return process.nextTick(function(){
-        var e = new Error("missing reqirted troop id assigning troop token");
-        e.code = z.errors.token;
+        var e = new Error("missing required troop id assigning troop key");
+        e.code = z.errors.key;
         cb(e);
       });
 
-      var token = crypto.createHash('md5').update(crypto.randomBytes(210)).digest().toString('hex');
-      if(obj.token) token = obj.token;
-      z.db.put("token"+sep+token,obj.id,function(err){
+      var key = crypto.createHash('md5').update(crypto.randomBytes(210)).digest().toString('hex');
+      if(obj.key) key = obj.key;
+      z.db.put("key"+sep+key,obj.id,function(err){
         if(err) return cb(err);
-        cb(false,token);
+        cb(false,key);
       });
     },
-    getTroopIdFromToken:function(token,cb){
-      this.db.get('token'+sep+token,cb);
+    getTroopIdFromKey:function(key,cb){
+      this.db.get('key'+sep+key,cb);
     },
     getNextId:function fn(key,cb){
       key = 'ids'+sep+key;
@@ -181,7 +189,7 @@ module.exports = function(dir){
         }
       });
     }, 
-    errors:{notroop:"NoTroop",token:"NoTokenId",noid:"NoTroopId"}
+    errors:{notroop:"NoTroop",key:"NoKeyId",noid:"NoTroopId"}
   }
 
 
