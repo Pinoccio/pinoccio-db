@@ -4,7 +4,7 @@ var memd = require('memdown');
 
 var pdb = require('../');
 
-test("can generate increment ids serially",function(t){
+test("can generate increment ids serially "+__filename,function(t){
   var d = pdb(db());
   
   // can get next id serially.
@@ -22,7 +22,7 @@ test("can generate increment ids serially",function(t){
 });
 
 
-test("can generate increment ids in parallel",function(t){
+test("can generate increment ids in parallel "+__filename,function(t){
   var d = pdb(db());
   t.plan(2);
   d.getNextId('hi',function(err,id){

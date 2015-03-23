@@ -251,7 +251,7 @@ module.exports = function(dir,opts){
       var out = [];
       z.db.createReadStream({start:"troops"+sep+troop+sep,end:"troops"+sep+troop+sep+sep}).on('data',function(data){
         if(data.key.indexOf('sync'+sep) > -1) {
-         // TODO put sync stream in the scout datd 
+         // TODO put sync stream in the scout data 
         } else {
           out.push(data.value);
         }
@@ -260,8 +260,8 @@ module.exports = function(dir,opts){
       }).on('end',function(){
         out.sort(function(v1,v2){
           if(v1.id > v2.id) return 1
-          else return 0;
-        })
+          return 0;
+        });
         cb(false,out);
       });   
     },

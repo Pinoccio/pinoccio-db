@@ -4,7 +4,7 @@ var memd = require('memdown');
 
 var pdb = require('../');
 
-test("can get list of troops",function(t){
+test("can get list of troops "+__filename,function(t){
   var d = pdb(db());
 
   d.writeTroop({name:'hi'},function(){

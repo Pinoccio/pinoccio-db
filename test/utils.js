@@ -4,7 +4,7 @@ var memd = require('memdown');
 
 var pdb = require('../');
 
-test("do utils work.",function(t){
+test("do utils work. "+__filename,function(t){
   var d = db();
 
   d.put('hi',2,function(){

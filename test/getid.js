@@ -4,7 +4,7 @@ var memd = require('memdown');
 
 var pdb = require('../');
 
-test("can get database uuid",function(t){
+test("can get database uuid "+__filename,function(t){
   var d = pdb(db());
 
   d.getId(function(err,id){

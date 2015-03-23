@@ -4,7 +4,7 @@ var memd = require('memdown');
 
 var pdb = require('../');
 
-test("can make new troops",function(t){
+test("can get new troops "+__filename,function(t){
   var d = pdb(db());
 
   makeTroop(d,function(err,obj){
