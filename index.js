@@ -1,8 +1,10 @@
 var through = require('through')
 var level = require('level');
 var sublevel = require('level-sublevel');
-var livestream = require('level-livestream');
+var livestream = require('level-live-stream');
 var crypto = require('crypto');
+var xtend = require('xtend');
+var uuid = require('node-uuid');
 
 // bam
 module.exports = function(dir){
@@ -15,6 +17,10 @@ module.exports = function(dir){
   }
   var o = {
     db:db,
+    // a database always has a uuid that identifies it 
+    getId:function(){
+      
+    },
     getTroops:function(){
       var z = this;
       var out = {};
@@ -45,7 +51,7 @@ module.exports = function(dir){
         });
       }
     },
-    writeTroop:function(obj){
+    writeTroop:function(obj,cb){
       // create and or update a troop.
       obj = obj||{};
 
@@ -56,37 +62,49 @@ module.exports = function(dir){
       if(!id) {
         // make troop
         z.getNextId('troops',function(err,id){
+          
           if(err) return cb(err);
           obj.neverConnected = true;
           obj.id = obj.troop = id;
           z.assignTroopToken({id:obj.id},function(err,token){
             obj.token = token;
             if(err) return cb(err);
-            updateTroop(obj,cb);
+            z.db.put(prefix+obj.id,obj,function(err){
+              if(err) return cb(err);
+              cb(false,obj);
+            });
           });         
         });
       } else {
         z.getTroop(id,function(err,data){
           if(err){
             if(err.code != z.errors.notroop) return cb(err);
-            obj.neverConnected = true;
 
+            // if id is manually provided.
+
+            obj.neverConnected = true;
             obj.troop = obj.id = id;
             // if token is present is gets force assigned to this mystery troop.
             z.assignTroopToken({id:obj.id,token:obj.token},function(err,token){
               if(err) return cb(err);
               obj.token = token;
-              z.db.put(prefix+obj.id,obj,cb);
+              z.db.put(prefix+obj.id,obj,function(err){
+                if(err) return cb(err);
+                cb(false,obj);
+              });
             });
             return;
           }
 
-          obj = _ext(data||{},obj);
+          obj = xtend(data||{},obj);
 
           // i dont care if this troop id is the next increment just save a troop at this id.
           obj.troop = obj.id = id;
 
-          z.db.put(prefix+obj.id,obj,cb);
+          z.db.put(prefix+obj.id,obj,function(err){
+            if(err) cb(err);
+            cb(false,obj);
+          });
         });
       }
     },
@@ -119,12 +137,15 @@ module.exports = function(dir){
       if(!obj.id) return process.nextTick(function(){
         var e = new Error("missing reqirted troop id assigning troop token");
         e.code = z.errors.token;
-        cb()
+        cb(e);
       });
 
       var token = crypto.createHash('md5').update(crypto.randomBytes(210)).digest().toString('hex');
       if(obj.token) token = obj.token;
-      z.db.put("token"+sep+token,obj.id);
+      z.db.put("token"+sep+token,obj.id,function(err){
+        if(err) return cb(err);
+        cb(false,token);
+      });
     },
     getTroopIdFromToken:function(token,cb){
       this.db.get('token'+sep+token,cb);
@@ -134,18 +155,19 @@ module.exports = function(dir){
 
       if(!fn.running) fn.running = {};
       if(fn.running[key]) return fn.running[key].push(cb); 
-      fn.running = {};
+      fn.running[key] = [];
 
       db.get(key,function(err,value){
+
         if(err) {
           if((err+'').indexOf('NotFoundError') === -1){
             return cb(err);
           } else {
-            value = 1;
+            value = 0;
           }
         }
 
-        putKey(value,cb);
+        putKey(value+1,cb);
 
         function putKey (value,cb){
           db.put(key,value,function(err){
@@ -167,9 +189,3 @@ module.exports = function(dir){
 
 }
 
-function _ext(o1,o2){
-  Object.keys(o2).forEach(function(k){
-    o1[k] = o2[k];
-  })
-  return o1;
-}

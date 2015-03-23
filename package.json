@@ -1,0 +1,27 @@
+{
+  "name": "pinoccio-db",
+  "description": "data persistence and replication layer for pinoccio troops",
+  "version": "0.0.0",
+  "repository": {
+    "url": "git://github.com/soldair/pinoccio-db.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "author": "Ryan Day",
+  "dependencies": {
+    "level": "^0.18.0",
+    "level-live-stream": "^1.4.9",
+    "level-sublevel": "^6.3.11",
+    "monotonic-timestamp": "0.0.9",
+    "node-uuid": "^1.4.3",
+    "through": "^2.3.4",
+    "xtend": "^4.0.0"
+  },
+  "devDependencies": {
+    "levelup": "^0.19.0",
+    "memdown": "^1.0.0",
+    "tape": "^2.14.0"
+  }
+}
