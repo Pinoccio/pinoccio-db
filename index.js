@@ -7,7 +7,7 @@ var xtend = require('xtend');
 var uuid = require('node-uuid');
 
 // bam
-module.exports = function(dir){
+module.exports = function(dir,opts){
   var db, sep = 'ÿ';
   if(dir && dir.createReadStream){
     db = dir;
@@ -15,24 +15,60 @@ module.exports = function(dir){
     db = level(dir,{valueEncoding:'json'});
     db = sublevel(db);
   }
+
+  opts = opts||{};
+
   var o = {
     db:db,
-    // a database always has a uuid that identifies it 
+    // a database always has a uuid that identifies it
+    // whenever a db is referenced from some place outside it will need this uuid.
+    _dbid:[],
     getId:function(cb){
-      //  
+      var z = this;
+      if(opts.id) return setImmediate(function(){
+        cb(false,opts.id);
+      });
+
+      if(z._dbid.length) return z._dbid.push(cb);
+      z._dbid.push(cb);
+
+      var cbs = function(err,data){
+        var a = z._dbid;
+        z._dbid = [];
+        while(a.length) a.shift()(err,data);
+      }
+
+      db.get('id',function(err,id){
+        if(err) {
+          if((err+'').indexOf('NotFoundError') > -1){
+            id = uuid.v4();
+            db.put('id',id,function(err){
+              if(err) return cbs(err);
+              opts.id = id;
+              cbs(false,id);
+            });
+          } else return cbs(err,id);
+        }
+        return cbs(false,id);
+      });
+
     },
     getTroops:function(cb){
       var z = this;
-      var out = {};
+      var out = [];
       z.db.createReadStream({start:"troops"+sep,end:"troops"+sep+sep}).on('data',function(data){
         if(data.key.indexOf('sync'+sep) > -1) {
          // TODO put sync stream in the troop section. 
         } else {
-          out[data.value.id] = data.value;
+          out.push(data.value);
         }
       }).on('error',function(err){
         cb(err);
       }).on('end',function(){
+        out.sort(function(v1,v2){
+          if(v1.id > v2.id) return 1;
+          return o;
+        })
         cb(false,out);
       });
     },
@@ -52,8 +88,12 @@ module.exports = function(dir){
         return;
       }
 
-      db.get("troops"+sep+id,cb);
-
+      db.get("troops"+sep+id,function(err,data){
+        if(err && (err+'').indexOf('NotFoundError') > -1){
+          err.code = z.errors.notroop;
+        }
+        cb(err,data);
+      });
     },
     writeTroop:function(obj,cb){
       // create and or update a troop.
@@ -148,6 +188,83 @@ module.exports = function(dir){
         while(a.length) a.shift()(err,data);
       }
     },
+    writeScout:function(troop,obj,cb){
+      var z = this;
+      var prefix = "troops"+sep+troop+sep;
+      z.getTroop(troop,function(err,troop){
+        if(err) return cb(err);
+        // get troop supports key as weel as id so make sure i pass on id.
+        troop = troop.id;
+        if(!obj.id) {
+          z.getNextId("troops"+sep+troop,function(err,id){
+            if(err) return cb(err);
+            obj.id = id;
+            obj.troop = troop;
+            db.put(prefix+id,obj,function(err,data){
+              cb(err,obj);
+            });
+          })
+        } else {
+          z.getScout(troop,obj.id,function(err,data){
+            if(err && err.code !== z.errors.noscout) {
+              return cb(err);
+            }
+
+            obj = xtend(data||{},obj);
+            obj.troop = troop;
+            db.put(prefix+obj.id,obj,function(err,data){
+              cb(err,obj);
+            });
+          });
+        }
+      });
+    },
+    deleteScout:function(troop,id,cb){
+      var prefix = "troops"+sep+troop+sep;
+      z.getScout(troop,id,function(err,obj){
+        if(err) return cb(err);
+        obj.deleted = Date.now();
+        db.put(prefix+id,obj,function(err){
+          cb(err,obj);
+        })
+      }) 
+    },
+    getScout:function(troop,id,cb){
+      var z = this;
+      var prefix = "troops"+sep+troop+sep;
+
+      if(!id || !troop) return process.nextTick(function(){
+        var e = new Error('troop and id required to get scout');
+        e.code = z.errors.noid;
+        cb(e);
+      });
+
+      z.db.get(prefix+id,function(err,data){
+        if(err && (err+'').indexOf('NotFoundError') > -1){
+          err.code = z.errors.noscout;
+        }
+        cb(err,data);
+      }); 
+    },
+    getScouts:function(troop,cb){
+      var z = this;
+      var out = [];
+      z.db.createReadStream({start:"troops"+sep+troop+sep,end:"troops"+sep+troop+sep+sep}).on('data',function(data){
+        if(data.key.indexOf('sync'+sep) > -1) {
+         // TODO put sync stream in the scout datd 
+        } else {
+          out.push(data.value);
+        }
+      }).on('error',function(err){
+        cb(err);
+      }).on('end',function(){
+        out.sort(function(v1,v2){
+          if(v1.id > v2.id) return 1
+          else return 0;
+        })
+        cb(false,out);
+      });   
+    },
     sync:function(options){
       // TODO 
 
@@ -221,7 +338,7 @@ module.exports = function(dir){
         }
       });
     }, 
-    errors:{notroop:"NoTroop",key:"NoKeyId",noid:"NoTroopId"}
+    errors:{notroop:"NoTroop",key:"NoKeyId",noid:"MissingId",noscout:"NoScout"}
   }
 
 
