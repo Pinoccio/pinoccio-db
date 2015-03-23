@@ -19,7 +19,7 @@ module.exports = function(dir){
     db:db,
     // a database always has a uuid that identifies it 
     getId:function(cb){
-      
+      //  
     },
     getTroops:function(cb){
       var z = this;
@@ -70,14 +70,23 @@ module.exports = function(dir){
           if(err) return cb(err);
           obj.neverConnected = true;
           obj.id = obj.troop = id;
-          z.assignTroopKey({id:obj.id},function(err,key){
+
+          var afterKey = function(err,key){
             obj.key = key;
             if(err) return cb(err);
             z.db.put(prefix+obj.id,obj,function(err){
               if(err) return cb(err);
               cb(false,obj);
             });
-          });         
+          }
+
+          // the key was provided.
+          if(obj.key && obj.key.length === 32){
+            return afterKey(false,obj.key);
+          }
+
+          z.assignTroopKey({id:obj.id},afterKey);
+
         });
       } else {
         z.getTroop(id,function(err,data){
@@ -112,9 +121,32 @@ module.exports = function(dir){
         });
       }
     },
-    deleteTroop:function(){
-      // this writes a troop id \0 key to the db. this causes getTroops to skip it unless a deletes option is passed.
+    _deletes:{},
+    deleteTroop:function(id,cb){
+      // i make sure the troop exists and all i do is set a deleted flag to the time on the troop's object.
+      var z = this;
+      var prefix = "troops"+sep;
 
+      if(z._deletes[id]) return z._deletes[id].push(cb);
+      z._deletes[id] = [cb];
+
+      z.getTroop(id,function(err,data){
+        if(err) return cbs(err)
+        // if it's deleted already do nothing.
+        if(data.deleted) return cbs(false,data);
+
+        data.deleted = Date.now();
+
+        z.db.put(prefix+data.id,data,function(err){
+          cbs(err,data);
+        }); 
+      });
+
+      function cbs(err,data){
+        var a = z._deletes[id];
+        delete z._deletes[id];
+        while(a.length) a.shift()(err,data);
+      }
     },
     sync:function(options){
       // TODO 
