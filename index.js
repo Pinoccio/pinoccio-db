@@ -270,28 +270,101 @@ module.exports = function(dir,opts){
     sync:function(options){
       var z = this;
       // todo support non live.
-      return livestream(cb,{start:"troops"+sep,end:"troop"+sep+sep,old:true}).pipe(through2.obj(function(data,cb){
-        // filter stale
-        // filter dleted troops anmd scouts.
-        cb(data);
-      }));
+      //
+      var deleted = {
+        troops:{},
+        scouts:{}
+      };
+      
+      var live = livestream(cb,{start:"troops"+sep,end:"troop"+sep+sep,old:true}).on('sync',function(){
+        this.emit('data',{sync:true});
+        // this event lets remote connections know when the state is "true".
+      });
+      
+
+      var s = through2.obj(function(data,enc,cb){
+
+        var chunks = data.key.split(sep);
+        var troop = chunks[1];
+        var scout = chunks[2];
+        var report = chunks[4];
+
+        // filter deleted troops and scouts. yeah i need to do this. it's the only reason you would delete troops.
+        if(report){
+          // a report.
+          if(deletes.troops[troop] || deletes.scouts[troop+sep+scout]){
+            return cb();
+          }
+        } else if(scout){
+          // scout data object
+          if(deletes.troops[troop]){
+            return cb();
+          }
+
+          if(data.deleted) {
+            deletes.scouts[troop+sep+scout] = 1;
+            return cb();
+          }
+          // make this a scout report
+          data = {report:"scout-data",data:data,t:ts(),scout:scout,troop:troop};
+        } else if(troop){
+          // troop data object
+          if(data.deleted) {
+            deletes.troops[troop] = 1;
+            return cb();
+          }
+          // make this a troop report.
+          data = {report:"troop-data",data:data,t:ts(),troop:troop};
+        } else {
+          return cb();
+        }
+
+        // filter stale? no. if i can do it from this data they can.
+        this.push(data);
+        cb();
+      })
+
+      // can't leave errors unbound
+      live.on('error',function(err){
+        s.emit('error',err);
+      });
+
+      return live.pipe(s);
     },
-    saveReportsStream:function(troopId){
+    stats:function(){
+      
+    },
+    validateReport:function(report){
+      // a report needs.
+      if(!report.troop) return false;
+      if(!report.scout) return false;
+      if(!report.report) return false;
+      return true;
+    },
+    saveReportsStream:function(){
       var z = this;
-      var s = through2.obj(function(data,cb){
-        // set troop id in incomming reports
-        data.troop = troopId;
+      var s = through2.obj(function(data,enc,cb){
+        if(!data) return cb();// skip empty events.
+        if(!this.validateReport(data)) {
+          var e = new Error('invalid report object. missing required troop,scout or report '+JSON.stringify(report));
+          e.code = z.errors.invalidreport;
+          return this.emit('error',e);
+        }
         // insert into sync section and stats section
         // {troop:,report:,scout:,data:,_t:}
-        data._t = ts();
-        var report = data.report; 
-        if(!report) return s.emit('drop',"missing report",data);
-        if(!data.scout) return s.emit('drop',"missing scout id",data);
+        
+        //
+        // We want to find a way to use the board's internal event timestamp for absolute ordering/deduping but 
+        //  i have a few parts to make before that can be true. 
+        // without that you can never compare samples that have a greater rate than the latency to get to the server
+        //
+        data.t = ts();
 
         var key = "troops"+sep+troopId+sep+data.scout+sep+'r'+sep+report;
         var history = "tlog"+sep+troopId+sep+data.scout+sep+report+sep+bte(data._t);
-
+        // update the live view
         this.push({type:"put",key:key,value:data});
+        // update the history log
         this.push({type:"put",key:history,value:data});
         cb();
       });
@@ -348,11 +421,11 @@ module.exports = function(dir,opts){
               delete fn.running[key];
             }
             cb(err,value);
-          })
+          });
         }
       });
     }, 
-    errors:{notroop:"NoTroop",key:"NoKeyId",noid:"MissingId",noscout:"NoScout"}
+    errors:{notroop:"NoTroop",key:"NoKeyId",noid:"MissingId",noscout:"NoScout",invalidreport:"InvalidReportObject"}
   }
 
 

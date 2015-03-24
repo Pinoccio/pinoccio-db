@@ -21,6 +21,7 @@
     "xtend": "^4.0.0"
   },
   "devDependencies": {
+    "stream-spigot": "^3.0.5",
     "levelup": "^0.19.0",
     "memdown": "^1.0.0",
     "tape": "^2.14.0"
