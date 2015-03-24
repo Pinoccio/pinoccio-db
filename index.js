@@ -221,6 +221,7 @@ module.exports = function(dir,opts){
       });
     },
     deleteScout:function(troop,id,cb){
+      var z = this;
       var prefix = "troops"+sep+troop+sep;
       z.getScout(troop,id,function(err,obj){
         if(err) return cb(err);
@@ -253,7 +254,7 @@ module.exports = function(dir,opts){
       z.db.createReadStream({start:"troops"+sep+troop+sep,end:"troops"+sep+troop+sep+sep}).on('data',function(data){
         if(data.key.indexOf(sep+'r'+sep) > -1) {
          // TODO put sync stream in the scout data 
-        } else {
+        } else if(!data.value.deleted){
           out.push(data.value);
         }
       }).on('error',function(err){
