@@ -1,12 +1,13 @@
-var through = require('through')
 var level = require('level');
 var sublevel = require('level-sublevel');
 var livestream = require('level-live-stream');
+var through2 = require('through2');
 var crypto = require('crypto');
 var xtend = require('xtend');
 var uuid = require('node-uuid');
+var bytewise = require('bytewise');
+var ts = require('monotonic-timestamp');// for sequence ids.
 
-// bam
 module.exports = function(dir,opts){
   var db, sep = 'ÿ';
   if(dir && dir.createReadStream){
@@ -57,7 +58,7 @@ module.exports = function(dir,opts){
       var z = this;
       var out = [];
       z.db.createReadStream({start:"troops"+sep,end:"troops"+sep+sep}).on('data',function(data){
-        if(data.key.indexOf('sync'+sep) > -1) {
+        if(data.key.indexOf(sep+'r'+sep) > -1) {
          // TODO put sync stream in the troop section. 
         } else {
           out.push(data.value);
@@ -250,7 +251,7 @@ module.exports = function(dir,opts){
       var z = this;
       var out = [];
       z.db.createReadStream({start:"troops"+sep+troop+sep,end:"troops"+sep+troop+sep+sep}).on('data',function(data){
-        if(data.key.indexOf('sync'+sep) > -1) {
+        if(data.key.indexOf(sep+'r'+sep) > -1) {
          // TODO put sync stream in the scout data 
         } else {
           out.push(data.value);
@@ -266,25 +267,37 @@ module.exports = function(dir,opts){
       });   
     },
     sync:function(options){
-      // TODO 
-
       var z = this;
       // todo support non live.
-      return livestream(cb,{start:"troops"+sep,end:"troop"+sep+sep,old:true}).pipe(through(function(){
+      return livestream(cb,{start:"troops"+sep,end:"troop"+sep+sep,old:true}).pipe(through2.obj(function(data,cb){
         // filter stale
         // filter dleted troops anmd scouts.
+        cb(data);
       }));
     },
     saveReportsStream:function(troopId){
       var z = this;
-      var s = through(function(data){
+      var s = through2.obj(function(data,cb){
         // set troop id in incomming reports
         data.troop = troopId;
         // insert into sync section and stats section
-        //TODO
+        // {troop:,report:,scout:,data:,_t:}
+        data._t = ts();
+        var report = data.report; 
+        if(!report) return s.emit('drop',"missing report",data);
+        if(!data.scout) return s.emit('drop',"missing scout id",data);
+
+        var key = "troops"+sep+troopId+sep+data.scout+sep+'r'+sep+report;
+        var history = "tlog"+sep+troopId+sep+data.scout+sep+report+sep+bte(data._t);
+
+        this.push({type:"put",key:key,value:data});
+        this.push({type:"put",key:history,value:data});
+        cb();
       });
 
-      s.pipe(db.writeStream());
+      s.pipe(db.writeStream()).on('error',function(err){
+        s.emit('error',err);
+      });
 
       return s;
     },
@@ -346,3 +359,11 @@ module.exports = function(dir,opts){
 
 }
 
+
+function bte(v){
+  return bytewise.encode(v).toString('hex');
+}
+
+function btd(v){
+  return bytewise.decode(new Buffer(v,'hex'));
+}
