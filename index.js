@@ -304,6 +304,9 @@ module.exports = function(dir,opts){
           if(data.deleted) {
             deletes.scouts[troop+sep+scout] = 1;
             return cb();
+          } else if(deletes.scouts[troop+sep+scout]){
+            // un-delete
+            delete deletes.scouts[troop+sep+scout];
           }
           // make this a scout report
           data = {report:"scout-data",data:data,t:ts(),scout:scout,troop:troop};
@@ -312,6 +315,9 @@ module.exports = function(dir,opts){
           if(data.deleted) {
             deletes.troops[troop] = 1;
             return cb();
+          } else if(deletes.troops[troop]){
+            // un-delete
+            delete deletes.troops[troop];
           }
           // make this a troop report.
           data = {report:"troop-data",data:data,t:ts(),troop:troop};
