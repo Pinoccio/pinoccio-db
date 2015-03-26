@@ -355,8 +355,12 @@ module.exports = function(dir,opts){
 
       return live.pipe(s);
     },
-    stats:function(){
-      
+    stats:function(options){
+      var report = options.report; // the report or reports you want to stream.
+      var start = options.start; // the time t start streaming historical data.
+      var end = options.end; // the time to stop sending historical data.
+      var tail = options.tail;// keep streaming live after end has been reached.
+      // do this.
     },
     validateReport:function(report){
       // a report needs.
@@ -385,7 +389,7 @@ module.exports = function(dir,opts){
         data.t = ts();
 
         var key = "troops"+sep+data.troop+sep+data.scout+sep+'r'+sep+data.report;
-        var history = "tlog"+sep+data.troop+sep+data.scout+sep+data.report+sep+bte(data._t);
+        var history = "tlog"+sep+data.troop+sep+data.scout+sep+data.report+sep+bte(data.t);
         // update the live view
         this.push({type:"put",key:key,value:data});
         // update the history log

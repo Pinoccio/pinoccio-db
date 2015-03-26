@@ -18,8 +18,7 @@ test('save reports'+__filename,function(t){
   s.emit = function(ev,data){
 
     if(!events[ev]) events[ev] = 0;
-    events[ev]++;
-    if(ev === 'data') console.log(data);
+    if(ev === 'data') events[ev]++;
     return em.apply(this,arguments);
   }
 
@@ -30,7 +29,15 @@ test('save reports'+__filename,function(t){
     ,{troop:1,scout:1,report:"hi",data:1,t:3}    
   ]).pipe(s).on('finish',function(){
     t.equals(events.data,6,'should have had 6 data events');
-    t.end(); 
+    // report data should be in getTroops, getTroop, getScouts, getScout
+    //
+    var c = 0;
+    d.db.createReadStream().on('data',function(data){
+      ++c;
+    }).on('end',function(){
+      t.equals(c,4,'there should be 4 data events in the database.')
+      t.end(); 
+    });
   });
 
 });
