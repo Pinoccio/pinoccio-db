@@ -57,11 +57,29 @@ module.exports = function(dir,opts){
     getTroops:function(cb){
       var z = this;
       var out = [];
+      var otroop= {},oscout = {};
       z.db.createReadStream({start:"troops"+sep,end:"troops"+sep+sep}).on('data',function(data){
-        if(data.key.indexOf(sep+'r'+sep) > -1) {
+        var chunks = data.key.split(sep);
+        var troop = chunks[1];
+        var scout = chunks[2];
+        var report = chunks[4];
+
+        if(report) {
          // TODO put sync stream in the troop section. 
+         if(scout){
+          oscout.reports[data.value.report] = data.value;
+         } else { 
+          otroop.reports[data.value.report] = data.value;
+         }
+        } else if(scout) {
+          oscout = data.value;
+          oscout.reports = {};
+          if(!oscout.deleted) otroop.scouts.push(data.value);
         } else {
-          out.push(data.value);
+          otroop = data.value;
+          otroop.scouts = [];
+          otroop.reports = {};
+          if(!otroop.deleted) out.push(otroop);
         }
       }).on('error',function(err){
         cb(err);
@@ -351,7 +369,7 @@ module.exports = function(dir,opts){
       var z = this;
       var s = through2.obj(function(data,enc,cb){
         if(!data) return cb();// skip empty events.
-        if(!this.validateReport(data)) {
+        if(!z.validateReport(data)) {
           var e = new Error('invalid report object. missing required troop,scout or report '+JSON.stringify(report));
           e.code = z.errors.invalidreport;
           return this.emit('error',e);
@@ -366,8 +384,8 @@ module.exports = function(dir,opts){
         //
         data.t = ts();
 
-        var key = "troops"+sep+troopId+sep+data.scout+sep+'r'+sep+report;
-        var history = "tlog"+sep+troopId+sep+data.scout+sep+report+sep+bte(data._t);
+        var key = "troops"+sep+data.troop+sep+data.scout+sep+'r'+sep+data.report;
+        var history = "tlog"+sep+data.troop+sep+data.scout+sep+data.report+sep+bte(data._t);
         // update the live view
         this.push({type:"put",key:key,value:data});
         // update the history log
