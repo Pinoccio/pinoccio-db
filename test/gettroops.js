@@ -9,9 +9,9 @@ test("can get list of troops "+__filename,function(t){
 
   d.writeTroop({name:'hi'},function(){
     d.writeTroop({name:'ho'},function(){
-      d.getTroops(function(err,troops){
-        t.equals(troops[0].name,'hi','troop 1 name should match');
-        t.equals(troops[1].name,'ho','troop 2 name should match');
+      d.get(function(err,troops){
+        t.equals(troops[1].name,'hi','troop 1 name should match');
+        t.equals(troops[2].name,'ho','troop 2 name should match');
         t.end();
       });
     })

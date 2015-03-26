@@ -9,14 +9,16 @@ test("can get scouts "+__filename,function(t){
 
   d.writeTroop({},function(err,troop){
     d.writeScout(troop.id,{name:"stu"},function(err,scout){
-      d.getScouts(troop.id,function(err,scouts){
+      d.get(troop.id,function(err,troop){
         t.ok(!err,'should not have error getting scouts');
-        t.equals(scouts.length,1,'should have 1 scout.');
+        t.equals(Object.keys(troop.scouts).length,1,'should have 1 scout.');
 
-        d.deleteScout(troop.id,scouts[0].id,function(err,scout){
+
+
+        d.deleteScout(troop.id,Object.keys(troop.scouts)[0],function(err,scout){
           t.ok(!err,'should not have error deleting scout ('+err+')');
-          d.getScouts(troop.id,function(err,scouts){
-            t.equals(scouts.length,0,'should return 0 scouts.');
+          d.get(troop.id,function(err,troop){
+            t.equals(Object.keys(troop.scouts).length,0,'should return 0 scouts.');
             t.end();
           });
         });

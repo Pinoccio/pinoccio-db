@@ -54,44 +54,7 @@ module.exports = function(dir,opts){
       });
 
     },
-    getTroops:function(cb){
-      var z = this;
-      var out = [];
-      var otroop= {},oscout = {};
-      z.db.createReadStream({start:"troops"+sep,end:"troops"+sep+sep}).on('data',function(data){
-        var chunks = data.key.split(sep);
-        var troop = chunks[1];
-        var scout = chunks[2];
-        var report = chunks[4];
-
-        if(report) {
-         // TODO put sync stream in the troop section. 
-         if(scout){
-          oscout.reports[data.value.report] = data.value;
-         } else { 
-          otroop.reports[data.value.report] = data.value;
-         }
-        } else if(scout) {
-          oscout = data.value;
-          oscout.reports = {};
-          if(!oscout.deleted) otroop.scouts.push(data.value);
-        } else {
-          otroop = data.value;
-          otroop.scouts = [];
-          otroop.reports = {};
-          if(!otroop.deleted) out.push(otroop);
-        }
-      }).on('error',function(err){
-        cb(err);
-      }).on('end',function(){
-        out.sort(function(v1,v2){
-          if(v1.id > v2.id) return 1;
-          return o;
-        })
-        cb(false,out);
-      });
-    },
-    getTroop:function(id,cb){
+    getTroopData:function(id,cb){
       var z = this;
       if(!id) return process.nextTick(function(){
         var e = new Error('id or key required to get troop');
@@ -148,7 +111,7 @@ module.exports = function(dir,opts){
 
         });
       } else {
-        z.getTroop(id,function(err,data){
+        z.getTroopData(id,function(err,data){
           if(err){
             if(err.code != z.errors.notroop) return cb(err);
 
@@ -189,7 +152,7 @@ module.exports = function(dir,opts){
       if(z._deletes[id]) return z._deletes[id].push(cb);
       z._deletes[id] = [cb];
 
-      z.getTroop(id,function(err,data){
+      z.getTroopData(id,function(err,data){
         if(err) return cbs(err)
         // if it's deleted already do nothing.
         if(data.deleted) return cbs(false,data);
@@ -210,7 +173,7 @@ module.exports = function(dir,opts){
     writeScout:function(troop,obj,cb){
       var z = this;
       var prefix = "troops"+sep+troop+sep;
-      z.getTroop(troop,function(err,troop){
+      z.getTroopData(troop,function(err,troop){
         if(err) return cb(err);
         // get troop supports key as weel as id so make sure i pass on id.
         troop = troop.id;
@@ -224,7 +187,7 @@ module.exports = function(dir,opts){
             });
           })
         } else {
-          z.getScout(troop,obj.id,function(err,data){
+          z.getScoutData(troop,obj.id,function(err,data){
             if(err && err.code !== z.errors.noscout) {
               return cb(err);
             }
@@ -241,7 +204,7 @@ module.exports = function(dir,opts){
     deleteScout:function(troop,id,cb){
       var z = this;
       var prefix = "troops"+sep+troop+sep;
-      z.getScout(troop,id,function(err,obj){
+      z.getScoutData(troop,id,function(err,obj){
         if(err) return cb(err);
         obj.deleted = Date.now();
         db.put(prefix+id,obj,function(err){
@@ -249,7 +212,7 @@ module.exports = function(dir,opts){
         })
       }) 
     },
-    getScout:function(troop,id,cb){
+    getScoutData:function(troop,id,cb){
       var z = this;
       var prefix = "troops"+sep+troop+sep;
 
@@ -266,39 +229,77 @@ module.exports = function(dir,opts){
         cb(err,data);
       }); 
     },
-    getScouts:function(troop,cb){
+    // generic get any current data for troops, a troop, scouts, a scout
+    get:function(/*troop,scout,*/cb){
       var z = this;
-      var out = [];
-      z.db.createReadStream({start:"troops"+sep+troop+sep,end:"troops"+sep+troop+sep+sep}).on('data',function(data){
-        if(data.key.indexOf(sep+'r'+sep) > -1) {
-         // TODO put sync stream in the scout data 
-        } else if(!data.value.deleted){
-          out.push(data.value);
+      var args = [].slice.call(arguments);
+      var cb = args.pop();
+      var troop = args.shift();
+      var scout = args.shift();
+
+      var result = {};
+      var range = "";
+      if(scout) range = troop+sep+scout;
+      else if (troop) range = ''+troop;
+
+      z.sync({range:range}).on('data',function(data){
+
+        if(data.report == "troop-data"){
+          if(data.deleted) return;
+          if(!result[data.troop]) result[data.troop] = data.data;
+
+          data.data.scouts = {};
+          data.data.reports = {};
+        } else if(data.report == "scout-data"){
+          if(!result[data.troop]) return;
+          if(!result[data.troop].scouts[data.scout]) result[data.troop].scouts[data.scout] = data.data;
+          data.data.reports = {};
+
+        } else if(data.report) {
+          if(!result[data.troop]) return;
+          if(!result[data.troop].scouts[data.scout]) return;
+
+          if(data.scout){
+            result[data.troop].scouts[data.scout].reports[data.report] = data;
+          } else { 
+            result[data.troop].reports[data.report] = data;
+          }
         }
+
+      }).on('end',function(){
+        if(troop){
+          result = result[troop];
+          if(scout && result){
+            result = result.scouts[scout];
+          }
+        }
+
+        cb(false,result);
+        cb = function(){};
       }).on('error',function(err){
         cb(err);
-      }).on('end',function(){
-        out.sort(function(v1,v2){
-          if(v1.id > v2.id) return 1
-          return 0;
-        });
-        cb(false,out);
-      });   
+        cb = function(){};     
+      });
+
     },
     sync:function(options){
       var z = this;
-      // todo support non live.
-      //
-      var deleted = {
-        troops:{},
-        scouts:{}
-      };
-      
-      var live = livestream(cb,{start:"troops"+sep,end:"troop"+sep+sep,old:true}).on('sync',function(){
-        this.emit('data',{sync:true});
-        // this event lets remote connections know when the state is "true".
-      });
-      
+      var deletes = {};
+      var range = options.range||'';
+      var opts = {start:"troops"+sep+range,end:"troops"+sep+range+sep+sep};
+
+      var stream;
+
+      if(options.tail) {
+        opts.old = true;
+        stream = livestream(cb,opts).on('sync',function(){
+          this.emit('data',{sync:true});
+          // this event lets you know when this stream has sent all of the events that have happened...
+          // and is starting to wait for new events to happen
+        });
+      } else {
+        stream = db.readStream(opts);
+      }
 
       var s = through2.obj(function(data,enc,cb){
 
@@ -310,35 +311,35 @@ module.exports = function(dir,opts){
         // filter deleted troops and scouts. yeah i need to do this. it's the only reason you would delete troops.
         if(report){
           // a report.
-          if(deletes.troops[troop] || deletes.scouts[troop+sep+scout]){
+          if(deletes[troop] || deletes[troop+sep+scout]){
             return cb();
           }
-        } else if(scout){
+        } else if(scout) {
           // scout data object
-          if(deletes.troops[troop]){
+          if(deletes[troop]) {
             return cb();
           }
 
-          if(data.deleted) {
-            deletes.scouts[troop+sep+scout] = 1;
+          if(data.value.deleted) {
+            deletes[troop+sep+scout] = 1;
             return cb();
-          } else if(deletes.scouts[troop+sep+scout]){
+          } else if(deletes[troop+sep+scout]) {
             // un-delete
-            delete deletes.scouts[troop+sep+scout];
+            delete deletes[troop+sep+scout];
           }
           // make this a scout report
-          data = {report:"scout-data",data:data,t:ts(),scout:scout,troop:troop};
-        } else if(troop){
+          data = {report:"scout-data",data:data.value,t:ts(),scout:scout,troop:troop};
+        } else if(troop) {
           // troop data object
-          if(data.deleted) {
-            deletes.troops[troop] = 1;
+          if(data.value.deleted) {
+            deletes[troop] = 1;
             return cb();
-          } else if(deletes.troops[troop]){
+          } else if(deletes[troop]){
             // un-delete
-            delete deletes.troops[troop];
+            delete deletes[troop];
           }
           // make this a troop report.
-          data = {report:"troop-data",data:data,t:ts(),troop:troop};
+          data = {report:"troop-data",data:data.value,t:ts(),troop:troop};
         } else {
           return cb();
         }
@@ -349,11 +350,11 @@ module.exports = function(dir,opts){
       })
 
       // can't leave errors unbound
-      live.on('error',function(err){
+      stream.on('error',function(err){
         s.emit('error',err);
       });
 
-      return live.pipe(s);
+      return stream.pipe(s);
     },
     stats:function(options){
       var report = options.report; // the report or reports you want to stream.
