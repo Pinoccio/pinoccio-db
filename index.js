@@ -292,7 +292,7 @@ module.exports = function(dir,opts){
 
       if(options.tail) {
         opts.old = true;
-        stream = livestream(cb,opts).on('sync',function(){
+        stream = livestream(z.db,opts).on('sync',function(){
           this.emit('data',{sync:true});
           // this event lets you know when this stream has sent all of the events that have happened...
           // and is starting to wait for new events to happen
@@ -334,7 +334,7 @@ module.exports = function(dir,opts){
           if(data.value.deleted) {
             deletes[troop] = 1;
             return cb();
-          } else if(deletes[troop]){
+          } else if(deletes[troop]) {
             // un-delete
             delete deletes[troop];
           }
@@ -356,12 +356,43 @@ module.exports = function(dir,opts){
 
       return stream.pipe(s);
     },
-    stats:function(options){
+    stats:function(troop,scout,options){
+      if(typeof options == "string") options = {report:options};
+      options = options||{};
       var report = options.report; // the report or reports you want to stream.
-      var start = options.start; // the time t start streaming historical data.
+      var start = options.start||0; // the time t start streaming historical data.
       var end = options.end; // the time to stop sending historical data.
-      var tail = options.tail;// keep streaming live after end has been reached.
+      var tail = options.end?false:options.tail;// keep streaming live after end has been reached.
+
+      if(!end) end = sep;
+      else end = bte(+end);
+
+      var prefix = "tlog"+sep+troop+sep+scout+sep+report+sep;
+      var opts = {start:prefix+bte(+start),end:prefix+end};
+      
       // do this.
+      var z = this;
+      var stream;
+      if(tail) {
+        opts.old = true;
+        stream = livestream(z.db,opts).on('sync',function(){
+          this.emit('data',{sync:true});
+        });
+      } else {
+        stream = z.db.createReadStream(opts)
+      }
+
+      var s = through2.obj(function(data,enc,cb){
+        this.push(data.value);
+        cb(); 
+      });
+
+      // can't leave errors unbound
+      stream.on('error',function(err){
+        s.emit('error',err);
+      });
+
+      return stream.pipe(s);
     },
     validateReport:function(report){
       // a report needs.
@@ -464,6 +495,7 @@ module.exports = function(dir,opts){
 
 
 function bte(v){
+  if(isNaN(v)) v = 0;
   return bytewise.encode(v).toString('hex');
 }
 
