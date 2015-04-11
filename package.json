@@ -3,7 +3,7 @@
   "description": "data persistence and replication layer for pinoccio troops",
   "version": "0.0.1",
   "repository": {
-    "url": "git://github.com/soldair/pinoccio-db.git"
+    "url": "git://github.com/pinoccio/pinoccio-db.git"
   },
   "main": "index.js",
   "scripts": {
