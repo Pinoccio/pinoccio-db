@@ -1,4 +1,6 @@
 
+[![Build Status](https://travis-ci.org/Pinoccio/pinoccio-db.svg)](http://travis-ci.org/Pinoccio/pinoccio-db)
+
   pinoccio-db
 ===============
 
