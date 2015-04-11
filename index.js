@@ -286,6 +286,8 @@ module.exports = function(dir,opts){
       var z = this;
       var deletes = {};
       var range = options.range||'';
+      if(range.join) range = range.join(sep);
+
       var opts = {start:"troops"+sep+range,end:"troops"+sep+range+sep+sep};
 
       var stream;

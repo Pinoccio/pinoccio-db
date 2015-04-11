@@ -36,35 +36,55 @@ is has this api `\/`
 
 ### methods
 
-#### get
+#### get(troop[,scoutId],cb)
 get troop and or scout objects with  their report values.
 
-#### writeTroop
+#### writeTroop(id,data,cb)
 set key values in the troop data object.
 
-#### deleteTroop
+#### deleteTroop(id,cb)
 inserts a tombstone record for this scout so it;s data and events will no longer stream as a result from commands.
 
-#### assignTroopKey
+#### assignTroopKey(cb)
 generate a new uniue troop key and local troop id. used in provisioning
 
-#### getTroopIdFromKey
+#### getTroopIdFromKey(key,cb)
 use a troop key to pull the local troop id.
 
-#### writeScout
+#### writeScout(troop,id,data,cb)
 set properties in the scout-data object
 
-#### deleteScout
+#### deleteScout(troop,id,cb)
 inserts a tombstone record for this scout so it;s data and events will no longer stream as a result from commands.
 
-#### sync
+#### sync(options)
 stream the current known state of your troops and the changes to that state as they happen.
 
-#### stats
-stream report events in time order fro the database.
+- options (optional)
+ - range , the section of your troop to sttream changes from. either undefined (all troops), a troop id or an array `[troop,scout]` (a specific scout)
+ - tail , stream changes as they happen. defaults to true. 
 
-#### saveReportsStream
+returns a readable stream.
+
+#### stats(troop,scout,options)
+
+stream report events in time order from the database.
+
+- troop , the troop id
+- scout , the scout id
+- options , either a string the report name or an object with these properties
+  - report (required)
+  - start , the time to start sending data from. optional defaults to 0
+  - end , the timestamp in ms to stop sending data. this always sets tail to false
+  - tail , if we should continue streaming reports as they happen. defaults to false
+
+returns a readable stream
+
+#### saveReportsStream()
+
 this is how you write new data to the database. 
+
+- returns a writeable stream.
 
 expects a stream of objects with these properties
 
@@ -83,22 +103,32 @@ expects a stream of objects with these properties
 
 optional.
 
-
-- boot
+- b
   if your scouts support it add a random flag that is generated at boot time. this value distinctly identifies each "boot". it's random so collisions are possible but it's very unlikely for collisions to happen close enough in time to trigger ambiguity.
 
-- millis
+- ms
   this is a value that increments from boot time. a message is unique to boot and millis.
 
 
-#### getId
+#### getId(cb)
+
+- cb , the callback for the result
+
 get the uuid for this instance of the database. used in replicate which is TODO
 
-#### getTroopData
+#### getTroopData(id,cb)
+
+- id , the troop id or troop key
+- cb , the callback for the result
+
 get only the troop data object. if you dont need the sensor values this is faster.
 
-#### getScoutData
+#### getScoutData(troopId,id,cb)
 get only the scout data object. if you dont need the sensor values this is faster.
+
+- troopId , the troop id
+- id , the scout id
+- cb , the callback for the result
 
 
 ### properties
