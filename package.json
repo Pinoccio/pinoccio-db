@@ -1,7 +1,7 @@
 {
   "name": "pinoccio-db",
   "description": "data persistence and replication layer for pinoccio troops",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "repository": {
     "url": "git://github.com/pinoccio/pinoccio-db.git"
   },

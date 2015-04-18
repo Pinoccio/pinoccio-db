@@ -18,9 +18,10 @@ module.exports = function(dir,opts){
     db = sublevel(db);
   }
 
-  if(!db.writeStream) {
-    db.createWriteStream = db.writeStream = LevelWriteStream(db)
+  if(!db.createWriteStream) {
+    db.createWriteStream = LevelWriteStream(db)
   }
+
 
   opts = opts||{};
 
@@ -86,6 +87,8 @@ module.exports = function(dir,opts){
       // create and or update a troop.
       obj = obj||{};
 
+      console.log('writing new  troop',obj);
+
       var z = this;
       var prefix = "troops"+sep;
       var id = obj.troop||obj.id;
@@ -95,7 +98,6 @@ module.exports = function(dir,opts){
         z.getNextId('troops',function(err,id){
           
           if(err) return cb(err);
-          obj.neverConnected = true;
           obj.id = obj.troop = id;
 
           var afterKey = function(err,key){
@@ -104,11 +106,13 @@ module.exports = function(dir,opts){
             z.db.put(prefix+obj.id,obj,function(err){
               if(err) return cb(err);
               cb(false,obj);
+              console.log('cb with ',obj);
             });
           }
 
           // the key was provided.
           if(obj.key && obj.key.length === 32){
+            console.log('key passed in!',obj.key);
             return afterKey(false,obj.key);
           }
 
@@ -305,7 +309,7 @@ module.exports = function(dir,opts){
           // and is starting to wait for new events to happen
         });
       } else {
-        stream = db.readStream(opts);
+        stream = z.db.createReadStream(opts);
       }
 
       var s = through2.obj(function(data,enc,cb){
@@ -321,6 +325,7 @@ module.exports = function(dir,opts){
 
         // filter deleted troops and scouts. yeah i need to do this. it's the only reason you would delete troops.
         if(report){
+          data = data.value;
           // a report.
           if(deletes[troop] || deletes[troop+sep+scout]){
             return cb();
@@ -441,9 +446,8 @@ module.exports = function(dir,opts){
         cb();
       });
 
-      console.log(db.createWriteStream);
 
-      s.pipe(db.writeStream()).on('error',function(err){
+      s.pipe(db.createWriteStream()).on('error',function(err){
         s.emit('error',err);
       });
 
