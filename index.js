@@ -7,6 +7,7 @@ var xtend = require('xtend');
 var uuid = require('node-uuid');
 var bytewise = require('bytewise');
 var ts = require('monotonic-timestamp');// for sequence ids.
+var LevelWriteStream = require("level-write-stream")
 
 module.exports = function(dir,opts){
   var db, sep = 'ÿ';
@@ -15,6 +16,10 @@ module.exports = function(dir,opts){
   } else {
     db = level(dir,{valueEncoding:'json'});
     db = sublevel(db);
+  }
+
+  if(!db.writeStream) {
+    db.createWriteStream = db.writeStream = LevelWriteStream(db)
   }
 
   opts = opts||{};
@@ -435,6 +440,8 @@ module.exports = function(dir,opts){
         this.push({type:"put",key:history,value:data});
         cb();
       });
+
+      console.log(db.createWriteStream);
 
       s.pipe(db.writeStream()).on('error',function(err){
         s.emit('error',err);

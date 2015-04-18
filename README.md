@@ -55,7 +55,7 @@ use a troop key to pull the local troop id.
 set properties in the scout-data object
 
 #### deleteScout(troop,id,cb)
-inserts a tombstone record for this scout so it;s data and events will no longer stream as a result from commands.
+inserts a tombstone record for this scout so it's data and events will no longer stream as a result from commands.
 
 #### sync(options)
 stream the current known state of your troops and the changes to that state as they happen.
