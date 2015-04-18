@@ -1,7 +1,7 @@
 {
   "name": "pinoccio-db",
   "description": "data persistence and replication layer for pinoccio troops",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": {
     "url": "git://github.com/pinoccio/pinoccio-db.git"
   },
@@ -21,9 +21,9 @@
     "xtend": "^4.0.0"
   },
   "devDependencies": {
-    "stream-spigot": "^3.0.5",
     "levelup": "^0.19.0",
     "memdown": "^1.0.0",
+    "stream-spigot": "^3.0.5",
     "tape": "^2.14.0"
   }
 }

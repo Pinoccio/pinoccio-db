@@ -304,7 +304,11 @@ module.exports = function(dir,opts){
       }
 
       var s = through2.obj(function(data,enc,cb){
-
+        // sync event from live stream.
+        if(data.sync){
+          this.push(data);
+          return cb()
+        }
         var chunks = data.key.split(sep);
         var troop = chunks[1];
         var scout = chunks[2];
