@@ -381,8 +381,9 @@ module.exports = function(dir,opts){
       var stream;
       if(tail) {
         opts.old = true;
+        
         stream = livestream(z.db,opts).on('sync',function(){
-          this.emit('data',{sync:true});
+          this.emit('data',{value:{sync:true}});
         });
       } else {
         stream = z.db.createReadStream(opts)
